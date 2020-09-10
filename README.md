@@ -117,8 +117,9 @@ v1.0 - Implemented the API, Data containers, and scatter plot
 
 ## What Can Still Be Done
 
+General - Some cleanup of the API, all caching should be handled by the Data  
 API - Implementation of the Yanay, Tree, Analysis, Cells APIs  
-Data - Implementation of Clusters information (and the above)
+Data - Implementation of Clusters information (and the above)  
 Plot - Implementation of VISIONs barplots / heatmaps
 
 ## License
