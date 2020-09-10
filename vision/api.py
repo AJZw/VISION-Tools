@@ -282,6 +282,7 @@ class API():
         """
         try:
             request = requests.head(self.session)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {self.session}") from error
 
@@ -416,6 +417,7 @@ class _SessionInfo():
         path = self.session + self._session_info
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -470,6 +472,7 @@ class _Signatures():
             path = self.session + self._signature_cluster_normal
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -494,6 +497,7 @@ class _Signatures():
             path = self.session + self._signature_cluster_meta
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
     
@@ -518,6 +522,7 @@ class _Signatures():
         path = self.session + self._signature_meta + metadata_name
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -539,6 +544,7 @@ class _Signatures():
         path = self.session + self._signature_info + signature_name
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -563,6 +569,7 @@ class _Signatures():
         path = self.session + self._signature_scores + signature_name
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -584,6 +591,7 @@ class _Signatures():
         path = self.session + self._signature_expression + signature_name + '/' + meta_name
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -628,6 +636,7 @@ class _Proteins():
             path = self.session + self._protein_clusters
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -651,6 +660,7 @@ class _Proteins():
         path = self.session + self._protein_values_a + protein_name + self._protein_values_b
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -699,6 +709,7 @@ class _Clusters():
             path = self.session + self._clusters_list
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
     
@@ -719,6 +730,7 @@ class _Clusters():
             path = self.session + self._clusters_meta_levels
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -746,6 +758,7 @@ class _Clusters():
         path = self.session + self._clusters_base + cluster_name + self._clusters_cells
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -767,6 +780,7 @@ class _Clusters():
         path = self.session + self._clusters_base + cluster_name + self._clusters_protein_matrix
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -788,6 +802,7 @@ class _Clusters():
         path = self.session + self._clusters_base + cluster_name + self._clusters_sigproj_matrix_normal
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -809,6 +824,7 @@ class _Clusters():
         path = self.session + self._clusters_base + cluster_name + self._clusters_sigproj_matrix_meta
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -852,6 +868,7 @@ class _LCA():
             path = self.session + self._lca_proteins
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -875,6 +892,7 @@ class _LCA():
             path = self.session + self._lca_normal
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -898,6 +916,7 @@ class _LCA():
             path = self.session + self._lca_meta
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -953,6 +972,7 @@ class _Projections():
             path = self.session + self._projections_list
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -984,6 +1004,7 @@ class _Projections():
             path = path_a + column
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -1020,6 +1041,7 @@ class _Expression():
             path = self.session + self._expression_gene_list
             try:
                 request = requests.get(path)
+                request.raise_for_status()
             except Exception as error:
                 raise SessionError(f"Unable to send request to {path}") from error
 
@@ -1037,6 +1059,7 @@ class _Expression():
         path = self.session + self._expression_gene + gene_name
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 
@@ -1072,6 +1095,7 @@ class _Cell():
         path = self.session + self._cell_meta_a + cell_id + self._cell_meta_b
         try:
             request = requests.get(path)
+            request.raise_for_status()
         except Exception as error:
             raise SessionError(f"Unable to send request to {path}") from error
 

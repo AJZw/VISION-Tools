@@ -40,6 +40,7 @@ from .data import Data
 
 import pandas as pd
 import plotnine as p9
+import copy
 
 p9.options.figure_size=(12.8, 9.6)
 
@@ -60,7 +61,7 @@ class Plot:
             :param color: the parameter to use for color mapping. Searches entire dataset for fitting parameter
             :param color_map: only used for factorized color parameters. Uses the color_map to map the levels
         """
-        plot_data = self.data.projection[projection]
+        plot_data = copy.deepcopy(self.data.projection[projection])
 
         if x not in plot_data or y not in plot_data:
             raise ValueError(f"x '{x}' or y '{y}' are not dimension of projection '{projection}''")
@@ -160,6 +161,7 @@ class Plot:
                 )
            
             else:
+                # Use default - (didnt care much and) couldnt quickly see which colormap is used for >10 discrete values
                 pass
             
             plot = plot + p9.theme(

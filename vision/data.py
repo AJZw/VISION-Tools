@@ -221,6 +221,12 @@ class _Expression:
         else:
             raise TypeError(f"cannot extract expression with genes defined as type {type(genes)}")
 
+    def __contains__(self, item) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names class attribute")
+
 class _Protein:
     """
     Representation of protein data. Tries to limit io by caching data
@@ -294,7 +300,13 @@ class _Protein:
             return self._cache[proteins]
         else:
             raise TypeError(f"cannot extract expression with proteins defined as type {type(proteins)}")
-    
+
+    def __contains__(self, item) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names class attribute")
+
 class _Signature:
     """
     Representation of signature data. Tries to limit io by caching data
@@ -369,6 +381,12 @@ class _Signature:
 
         else:
             raise TypeError(f"cannot extract expression with signatures defined as type {type(signatures)}")
+
+    def __contains__(self, item) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names class attribute")
 
 class _Metadata:
     """
@@ -454,6 +472,12 @@ class _Metadata:
         else:
             raise TypeError(f"cannot extract expression with meta defined as type {type(meta)}")
 
+    def __contains__(self, item) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names/levels class attribute")
+
 class _Projection:
     """
     Representation of projection data. Tries to limit io by caching data
@@ -506,3 +530,9 @@ class _Projection:
 
         else:
             raise TypeError(f"cannot extract projections with projection defined as type {type(meta)}, must be str")
+
+    def __contains__(self, item) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names/dimensions class attribute")
