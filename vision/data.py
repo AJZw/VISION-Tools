@@ -1,5 +1,5 @@
 ##############################################################################     ##    ######
-#    A.J. Zwijnenburg                   2020-09-03           v1.0                 #  #      ##
+#    A.J. Zwijnenburg                   2020-09-20           v1.1                 #  #      ##
 #    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
@@ -147,6 +147,53 @@ class Data:
         """
         return self._projection
     
+    def __getitem__(self, columns: Union[str, List[str]]) -> pd.DataFrame:
+        """
+        Looks through all data to find all columns of interest
+        """
+        if isinstance(columns, str):
+            column = columns
+
+            if column in self.expression.names:
+                return self.expression[column]
+
+            elif column in self.meta.names:
+                return self.meta[column]
+
+            elif column in self.protein.names:
+                return self.protein[column]
+
+            elif column in self.signature.names:
+                return self.signature[column]
+
+            else:
+                raise ValueError(f"column parameter '{column}' couldnt be found in the dataset")
+
+        elif isinstance(columns, list):
+            warnings: List[str] = []
+            output: pd.DataFrame = pd.DataFrame()
+            for column in columns:
+                try:
+                    output[column] = self.__getitem__(column).iloc[:,0]
+                except ValueError:
+                    warnings.append(column)
+
+            if warnings:
+                raise ValueError(f"column parameters [{', '.join(warnings)}] couldnt be found in the dataset")
+
+            return output
+        else:
+            raise TypeError(f"cannot extract expression with proteins defined as type {type(columns)}")
+
+    def __contains__(self) -> None:
+        """
+        Accidental containment testing gives weird errors so raise error
+        """
+        raise AttributeError("for membership checking please use the names attribute of the relevant class")
+
+    def __repr__(self) -> str:
+        return f"Data({self.api.session})"
+
 class _Expression:
     """
     Representation of expression data. Tries to limit io by caching data
@@ -164,7 +211,7 @@ class _Expression:
         Getter for gene names
         """
         if not self._names:
-            self._names = self._parent.api.expression.names
+            self._names = self._parent.api.expression.names()
 
         return self._names
 
@@ -244,7 +291,7 @@ class _Protein:
         Getter for protein names
         """
         if not self._names:
-            self._names = self._parent.api.proteins.names
+            self._names = self._parent.api.proteins.names()
 
         return self._names
 
@@ -324,7 +371,7 @@ class _Signature:
         Getter for signature names
         """
         if not self._names:
-            self._names = self._parent.api.signatures.names
+            self._names = self._parent.api.signatures.names()
 
         return self._names
 
@@ -403,10 +450,10 @@ class _Metadata:
     @property
     def names(self) -> List[str]:
         """
-        Getter for gene names
+        Getter for metadata names
         """
         if not self._names:
-            self._names = list(self._parent.api.cell.cell(self._parent.api.expression.names[0]).keys())
+            self._names = list(self._parent.api.cell.cell(self._parent.api.expression.names()[0]).keys())
 
         return self._names
 
@@ -416,7 +463,7 @@ class _Metadata:
         Getter for the levels of catagorized meta names
         """
         if not self._levels:
-            self._levels = self._parent.api.clusters.levels
+            self._levels = self._parent.api.clusters.levels()
         return self._levels
 
     @property
@@ -447,7 +494,7 @@ class _Metadata:
 
             # Check if meta is cached
             if not meta in self._cache:
-                counts = self._parent.api.signatures._cells_metadata(meta)
+                counts = self._parent.api.signatures.metadata(meta)
                 self._cache[meta] = counts
 
             return self._cache.loc[:, [meta]]
@@ -465,7 +512,7 @@ class _Metadata:
 
                 # Check if label is cached
                 if not label in self._cache:
-                    counts = self._parent.api.signatures._cells_metadata(label)
+                    counts = self._parent.api.signatures.metadata(label)
                     self._cache[label] = counts
 
             return self._cache[meta]
@@ -496,7 +543,7 @@ class _Projection:
         Getter for gene names
         """
         if not self._names:
-            self._names = self._parent.api.projections.names
+            self._names = self._parent.api.projections.names()
 
         return self._names
 
@@ -506,7 +553,7 @@ class _Projection:
         Getter for the dimensions of projections
         """
         if not self._dimensions:
-            self._dimensions = self._parent.api.projections.levels
+            self._dimensions = self._parent.api.projections.levels()
         return self._dimensions
 
     def __len__(self):
@@ -523,7 +570,14 @@ class _Projection:
 
             # Check if meta is cached
             if not projection in self._cache:
-                data = self._parent.api.projections.projection(projection)
+                # Get all levels of the projection
+                levels = self.dimensions[projection]
+                data: List[pd.Series] = []
+                for level in levels:
+                    data.append(self._parent.api.projections.projection(projection, level))
+
+                data = pd.concat(data, axis=1)
+                data.columns = levels
                 self._cache[projection] = data
 
             return self._cache[projection]

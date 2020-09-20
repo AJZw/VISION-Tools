@@ -1,5 +1,5 @@
 ##############################################################################     ##    ######
-#    A.J. Zwijnenburg                   2020-09-02           v1.0                 #  #      ##
+#    A.J. Zwijnenburg                   2020-09-20           v1.1                 #  #      ##
 #    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
@@ -26,7 +26,9 @@
 ##############################################################################
 
 """
-An API interface with the Yosef Lab Vision server
+An API interface with the Yosef Lab Vision server. 
+The API just handles the requests. Caching of the data is seen as an implementation 
+detail to be provided by modules using this api.
 (Thx to api.js and its nice and clear writing, made it nice and easy to write)
 
 ------------------------------------------------------------------------------
@@ -60,12 +62,12 @@ These classes are used to store the _Clusters and _LCA results
 A storage class for the data of a single signature. The class store the signatures
 metadata, included genes, and gene weights.
 
-:class: Cluster
+:class: ClusterResult
 A storage class for _Clusters results. Stores the zscores and pvalues:
 .zscores    - zscore result                         -> pd.DataFrame[zscores] indexed on the compared data labels
 .pvalues    - pvalue result                         -> pd.DataFrame[pvalues] indexed on the compared data labels
 
-:class: LatentClass
+:class: LatentClassResult
 A storage class for _LCA results. Stores the zscores and pvalues:
 .zscores    - zscore result                         -> pd.DataFrame[zscores] indexed on the compared data labels
 .pvalues    - pvalue result                         -> pd.DataFrame[pvalues] indexed on the compared data labels
@@ -89,39 +91,43 @@ The interface with VISIONS Session Info API, provides:
 
 :class: _Signatures
 The interface with VISION Signature API, provides:
-.names        - the signature names                 -> List[signature_name]
+.names()      - the signature names                 -> List[signature_name]
 .signature()  - signature metadata                  -> Signature
 .score()      - signature score                     -> pd.Series[score] indexed on cell_id
 .expression() - unknown score /metadata/gene        -> pd.DataFrame[score] indexed on gene vs metadata_label
 
+.metadata_names() - the metadata names              -> List[metadata_name]
+.metadata()   - cell metadata                       -> pd.Series[values] indexed on cell_id
+
 :class: _Proteins
 The interface with VISION Proteins API, provides:
-.names      - protein names                         -> List[protein_name]
+.names()    - protein names                         -> List[protein_name]
 .value()    - protein value/cell_id                 -> pd.Series[value] indexed on cell_id
 
 :class: _Clusters
 The interface with VISION Clusters API, provides:
-.names      - cluster names                         -> List[cluster_name]
-.levels     - levels of each cluster name           -> Dict[cluster_name, List[cluster_levels]]
-.proteins() - Cluster info protein/metadata         -> Cluster
-.signatures() - Cluster info signature/metadata     -> Cluster
-.metadata() - Cluster info metadata/metadata        -> Cluster
+.names()    - cluster names                         -> List[cluster_name]
+.levels()   - levels of each cluster name           -> Dict[cluster_name, List[cluster_levels]]
+.cluster()  - the value of a cluster per cell       -> pd.Series[value] indexed on cell_id
+.proteins() - Cluster scores for proteins           -> ClusterResult
+.signatures() - Cluster scores for signature        -> ClusterResult
+.metadata() - Cluster scores for metadata           -> ClusterResult
 
 :class: _LCA
 The interface with VISION LCA API, provides:
-.proteins() - Latent Class Analysis of proteins     -> LatentClass
-.signatures() - Latent Class Analysis of signatures -> LatentClass
-.metadata() - Latent Class Analysis of metadata     -> LatentClass
+.proteins() - Latent Class Analysis of proteins     -> LatentClassResult
+.signatures() - Latent Class Analysis of signatures -> LatentClassResult
+.metadata() - Latent Class Analysis of metadata     -> LatentClassResult
 
 :class: _Projections
 The interface with VISION Projections API, provides:
-.names      - The projection names                  -> List[projection_name]
-.levels     - The projection levels                 -> Dict[projection_name, List[projection_levels]]
-.projection() - The value of all events in all projection dimensions -> pd.DataFrame[value] indexed on dimension vs cell_id
+.names()      - The projection names                  -> List[projection_name]
+.levels()     - The projection levels                 -> Dict[projection_name, List[projection_levels]]
+.projection() - The value of a projection dimension   -> pd.Series[value] indexed cell_id
 
 :class: _Expression
 The interface with VISION Expression API, provides:
-.names      - The gene names                        -> List[gene_name]
+.names()      - The gene names                        -> List[gene_name]
 .expression() - The expression of a gene in all events -> pd.Series[value] indexed on cell_id
 
 :class: _Cell
@@ -181,7 +187,7 @@ class Signature():
     def __repr__(self) -> None:
         return f"Signature({self.name})"
 
-class Cluster():
+class ClusterResult():
     """
     A class representing a cluster result
         :param data: (optional) parses data
@@ -212,9 +218,9 @@ class Cluster():
     def __repr__(self) -> str:
         return f"Cluster({self.type.name.lower()} x {self.cluster_name})"
 
-class LatentClass():
+class LatentClassResult():
     """
-    A class representing a result of laten class analysis (LCA)
+    A class representing a result of latent class analysis (LCA)
         :param data: (optional) parses data
     """
     def __init__(self, data_type: DataType, data: bytes = None) -> None:
@@ -388,7 +394,8 @@ class API():
 
 class _SessionInfo():
     """
-    Main interface with the VISION Session Info API
+    Main interface with the VISION Session Info API.
+    Rerun load_from_vision() to rerun the request.
         :param session: the link to the vision session
     """
     def __init__(self, session: str) -> None:
@@ -459,61 +466,49 @@ class _Signatures():
         self._signature_meta: str = "/Signature/Meta/"             # + meta_name 
         self._signature_cluster_meta: str = "/FilterGroup/SigClusters/Meta"
 
-        # Data caches
-        self._names: List[str] = []
-        self._meta: List[str] = []
-
-    @property
     def names(self) -> List[str]:
         """
-        Getter for the signature names. First time runs a request, afterwards caches the result
+        Getter for the signature names.
         """
-        if not self._names:
-            path = self.session + self._signature_cluster_normal
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._signature_cluster_normal
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            self._names = list(parse.keys())
+        return list(parse.keys())
 
-        return self._names
-
-    @property
-    def _metadata_names(self) -> List[str]:
+    def metadata_names(self) -> List[str]:
         """
-        Getter for the meta names. First time runs a request, afterwards caches the result
+        Getter for the meta names.
         """
-        if not self._meta:
-            path = self.session + self._signature_cluster_meta
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
-    
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
-    
-            self._meta = list(parse.keys())
-    
-        return self._meta
+        path = self.session + self._signature_cluster_meta
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-    def _cells_metadata(self, metadata_name: str) -> pd.Series:
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+
+        return list(parse.keys())
+
+    def metadata(self, metadata_name: str) -> pd.Series:
         """
         Getter for the metadata label of all events/cells, sends a request for the specific info.
             :metadata_name: the name of the metadata as in self.meta
@@ -625,32 +620,26 @@ class _Proteins():
         self._protein_values_a: str = "/Proteins/"
         self._protein_values_b: str = "/Values"
 
-        self._names: List[str] = []
-
-    @property
     def names(self) -> List[str]:
         """
-        Getter for the protein names. First time runs a request, afterwards caches the result
+        Getter for the protein names.
         """
-        if not self._names:
-            path = self.session + self._protein_clusters
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._protein_clusters
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            self._names = list(parse.keys())
-
-        return self._names
+        return list(parse.keys())
 
     def value(self, protein_name: str) -> pd.Series:
         """
@@ -695,63 +684,50 @@ class _Clusters():
         self._clusters_meta_levels: str = "/Clusters/MetaLevels"            # meta_levels
         self._clusters_list: str = "/Clusters/list"                         # meta_names
 
-        # data caches
-        self._meta: List[str] = []
-        self._meta_levels: Dict[str, List[str]] = []
-
-    @property
     def names(self) -> List[str]:
         """
-        Getter for the cluster_names. First time runs a request, afterwards caches the result
-        This is equivalent to the catagorize metadata_names, for the labels see Clusters.levels attribute
+        Getter for the cluster_names. For the labels see Clusters.levels attribute
         """
-        if not self._meta:
-            path = self.session + self._clusters_list
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
-    
-            parse = json.loads(request.content)
+        path = self.session + self._clusters_list
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            self._meta = list(parse)
-    
-        return self._meta
+        parse = json.loads(request.content)
 
-    @property
+        return list(parse)
+
     def levels(self) -> Dict[str, List[str]]:
         """
         Getter for the cluster levels of all cluster_names, sends a request for the specific info.
         This is equivalent to all labels from all catagorized metadata_levels. 
             :returns: a dictionary of all metadata names with a list of all levels of the specified entree
         """
-        if not self._meta_levels:
-            path = self.session + self._clusters_meta_levels
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._clusters_meta_levels
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            temp = dict()
-            for meta in parse:
-                temp[meta] = parse[meta]
-            self._meta_levels = temp
+        temp = dict()
+        for meta in parse:
+            temp[meta] = parse[meta]
+        return temp
         
-        return self._meta_levels
-
-    def __cells_metadata(self, cluster_name: str) -> pd.Series:
+    def cluster(self, cluster_name: str) -> pd.Series:
         """
-        Getter for the cluster/metadata label of all events/cells, sends a request for the specific info.
+        Getter for the level of the specified cluster_name indexed by cell_id
             :cluster_name: the name of the cluster as in self.names
             :returns: a pd.Series of cluster_label indexed on cell_id
         """
@@ -772,7 +748,7 @@ class _Clusters():
 
         return pd.Series(parse["values"], index=parse["cells"])
 
-    def proteins(self, cluster_name: str) -> Cluster:
+    def proteins(self, cluster_name: str) -> ClusterResult:
         """
         Returns the zscores and pvals of the cluster_name clustering results over the protein data
             :cluster_name: the name of the cluster as in self.names
@@ -792,9 +768,9 @@ class _Clusters():
         else:
             raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-        return Cluster(DataType.PROTEINS, cluster_name, parse)
+        return ClusterResult(DataType.PROTEINS, cluster_name, parse)
 
-    def signatures(self, cluster_name: str) -> Cluster:
+    def signatures(self, cluster_name: str) -> ClusterResult:
         """
         Returns the zscores and pvals of the cluster_name clustering over the signatures data
             :cluster_name: the name of the cluster as in self.names
@@ -814,9 +790,9 @@ class _Clusters():
         else:
             raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-        return Cluster(DataType.SIGNATURES, cluster_name, parse)
+        return ClusterResult(DataType.SIGNATURES, cluster_name, parse)
 
-    def metadata(self, cluster_name: str) -> Cluster:
+    def metadata(self, cluster_name: str) -> ClusterResult:
         """
         Returns the zscores and pvals of the cluster_name clustering over the signature data
             :cluster_name: the name of the cluster as in self.names
@@ -836,7 +812,7 @@ class _Clusters():
         else:
             raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-        return Cluster(DataType.METADATA, cluster_name, parse)
+        return ClusterResult(DataType.METADATA, cluster_name, parse)
 
     def __repr__(self) -> str:
         return f"Clusters({self.session})"
@@ -854,82 +830,68 @@ class _LCA():
         self._lca_proteins = "/PearsonCorr/Proteins"
         self._lca_meta = "/PearsonCorr/Meta"
 
-        # data caches
-        self._proteins: LatentClass = None
-        self._signatures: LatentClass = None
-        self._metadata: LatentClass = None
-
-    @property
-    def proteins(self) -> LatentClass:
+    def proteins(self) -> LatentClassResult:
         """
         Returns the zscores and pvalues of the latent class analysis over the protein data
         """
-        if not self._proteins:
-            path = self.session + self._lca_proteins
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._lca_proteins
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            self._proteins = LatentClass(DataType.PROTEINS, parse)
-        return self._proteins
+        return LatentClassResult(DataType.PROTEINS, parse)
 
-    @property
-    def signatures(self) -> LatentClass:
+    def signatures(self) -> LatentClassResult:
         """
         Returns the zscores and pvalues of the latent class analysis over the signatures data
         """
-        if not self._signatures:
-            path = self.session + self._lca_normal
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._lca_normal
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            self._signatures = LatentClass(DataType.SIGNATURES, parse)
-        return self._signatures
+        return LatentClassResult(DataType.SIGNATURES, parse)
 
-    @property
-    def metadata(self) -> LatentClass:
+    def metadata(self) -> LatentClassResult:
         """
         Returns the zscores and pvalues of the latent class analysis over the metadata data
         """
-        if not self._metadata:
-            path = self.session + self._lca_meta
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._lca_meta
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            self._metadata = LatentClass(DataType.METADATA, parse)
-        return self._metadata
+        return LatentClassResult(DataType.METADATA, parse)
 
     def __repr__(self) -> str:
         return f"LCA({self.session})"
@@ -947,72 +909,58 @@ class _Projections():
         self._projections_coordinates_b = "/coordinates/" # + projeciton_column
         self._projections_list = "/Projections/list"
 
-        # cached data
-        self._levels: Dict[str, List[str]] = dict()
-
-    @property
     def names(self) -> List[str]:
         """
-        Getter for the cluster_names. First time runs a request, afterwards caches the result
+        Getter for the cluster_names.
         This is equivalent to the metadata_names, for the labels see Clusters.levels attribute
         """
-        if not self._levels:
-            _ = self.levels
+        levels = self.levels()
     
-        return list(self._levels.keys())
+        return list(levels.keys())
 
-    @property
     def levels(self) -> Dict[str, List[str]]:
         """
         Getter for the cluster levels of all cluster_names, sends a request for the specific info.
         This is equivalent to all labels from all metadata_levels. 
             :returns: a dictionary of all metadata names with a list of all levels of the specified entree
         """
-        if not self._levels:
-            path = self.session + self._projections_list
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._projections_list
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
-            try: 
-                parse["error"]
-            except KeyError:
-                pass
-            else:
-                raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
+        parse = json.loads(request.content)
+        try: 
+            parse["error"]
+        except KeyError:
+            pass
+        else:
+            raise SessionError(f"Unable to parse reply from {path}. Is the path correct?")
 
-            temp = dict()
-            for meta in parse:
-                temp[meta] = parse[meta]
-            self._levels = temp
+        temp = dict()
+        for meta in parse:
+            temp[meta] = parse[meta]
         
-        return self._levels
+        return temp
 
-    def projection(self, projection_name) -> pd.DataFrame:
+    def projection(self, projection_name, projection_level) -> pd.Series:
         """
-        Returns x-coordinates of all dimensions of the projection_name (all defined in self.names)
-        :returns: A pd.DataFrame of the projection value of each dimension vs cell_id
+        Returns coordinate of projection_level (dimension) of the projection_name
+            :returns: A pd.Series of the projection value of the dimension index over cell_id
         """
-        path_a = self.session + self._projections_coordinates_a + projection_name + self._projections_coordinates_b
-        columns = self.levels[projection_name]
-        
-        output = dict()
-        for column in columns:
-            path = path_a + column
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._projections_coordinates_a + projection_name + self._projections_coordinates_b + projection_level
 
-            parse = json.loads(request.content)
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            output[column] = pd.Series([x[0] for x in parse], index=[x[1] for x in parse])
+        parse = json.loads(request.content)
 
-        return pd.DataFrame(output)
+        return pd.Series([x[0] for x in parse], index=[x[1] for x in parse])
 
     def __repr__(self) -> str:
         return f"Projections({self.session})"
@@ -1029,26 +977,20 @@ class _Expression():
         self._expression_gene = "/Expression/Gene/" # + gene_name
         self._expression_gene_list = "/Expression/Genes/List"
 
-        # data cache
-        self._names: List[str] = []
-
-    @property
     def names(self) -> List[str]:
         """
         Returns a list of all gene names
         """
-        if not self._names:
-            path = self.session + self._expression_gene_list
-            try:
-                request = requests.get(path)
-                request.raise_for_status()
-            except Exception as error:
-                raise SessionError(f"Unable to send request to {path}") from error
+        path = self.session + self._expression_gene_list
+        try:
+            request = requests.get(path)
+            request.raise_for_status()
+        except Exception as error:
+            raise SessionError(f"Unable to send request to {path}") from error
 
-            parse = json.loads(request.content)
+        parse = json.loads(request.content)
 
-            self._names = parse
-        return self._names
+        return parse
     
     def expression(self, gene_name) -> pd.Series:
         """
