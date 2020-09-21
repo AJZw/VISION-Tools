@@ -129,19 +129,23 @@ scatter = plot.comparison(x="TBX21", y="GZMB")
 plot.mask = plot.data["discrete"] == "1"
 
 # For discrete parameters a custom color_map can be added
-scatter = Plot.scatter("projection_name", x="x", y="y", c="discrete", c_map={"1":"red", "2":"blue"})
+scatter = Plot.projection("projection_name", x="x", y="y", c="discrete", c_map={"1":"red", "2":"blue"})
+
+# Bar plots can also be created, and can be log10(x+1) scaled
+bar = Plot.bar(x="x", log=False)
 ```
 
 ## Version Info
 
 v1.0 - Implemented the API, Data containers, and scatter plot  
-v1.1 - Removed some API inconsistencies
+v1.1 - Removed some API inconsistencies  
+v1.2 - Implemented bar plot
 
 ## What Can Still Be Done
 
 API - Implementation of the Yanay, Tree, Analysis, Cells APIs  
 Data - Handle for Clustering and LCA results  
-Plot - Implementation of VISIONs barplots / heatmaps
+Plot - Implementation of VISIONs heatmaps
 
 ## License
 

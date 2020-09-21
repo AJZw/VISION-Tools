@@ -1,5 +1,5 @@
 ##############################################################################     ##    ######
-#    A.J. Zwijnenburg                   2020-09-03           v1.0                 #  #      ##
+#    A.J. Zwijnenburg                   2020-09-21           v1.2                 #  #      ##
 #    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
@@ -258,5 +258,145 @@ class Plot:
         plot_data = copy.deepcopy(self.data[[x, y, c]])
 
         plot = self.scatter(plot_data, x, y, c, c_map)
+
+        return plot
+
+    def bar(self, x: str, log: bool=False) -> p9.ggplot:
+        """
+        Builds a bar graph
+            :param x: the x-dimension
+            :param log: whether to log-transform the y-axis
+        """
+        plot_data = copy.deepcopy(self.data[x])
+
+        bin_count = 40
+        is_factor = False
+
+        # Determine if factor
+        if x in self.data.meta.names:
+            if x in self.data.meta.levels:
+                is_factor = True
+                bin_range = self.data.meta.levels[x]
+                bin_count = len(bin_range)
+
+        # Do necessary binning:
+        # Mainly to allow for manual log-scaling, to be able to show 0-values
+        if not is_factor:
+            plot_data["__bin"], bin_range = pd.cut(
+                plot_data[x],
+                bins=bin_count,
+                right=False,
+                include_lowest=True,
+                retbins=True,
+                labels=False
+            )
+            # now set the bins to the middle of the bin_range for proper x-visualization
+            bin_value = {}
+            bin_width = (bin_range[1] - bin_range[0])
+            for i in range(0, len(bin_range)-1):
+                bin_value[i] = ((i+0.5)*bin_width) + bin_range[0]
+
+            plot_data["__bin"] = plot_data["__bin"].apply(lambda x: bin_value[x])
+
+            bin_data = pd.DataFrame(pd.value_counts(plot_data["__bin"]))
+            bin_data.columns = ["__count"]
+            bin_data["__bin"] = bin_data.index
+        else:
+            bin_data = pd.DataFrame(pd.value_counts(plot_data[x]))
+            bin_data.columns = ["__count"]
+            bin_data["__bin"] = bin_data.index
+        
+        plot = p9.ggplot(
+            bin_data, 
+            p9.aes(
+                x="__bin",
+                y="__count"
+            )
+        )
+
+        # hides axis titles
+        plot = plot + p9.theme_bw() + p9.theme(
+            text=p9.element_text(family="sans-serif", weight="normal"),
+            plot_title=p9.element_text(ha="center", weight="bold", size=14),
+            axis_title_x=p9.element_blank(),
+            axis_title_y=p9.element_blank(),
+            axis_text_x=p9.element_text(ha="center", va="top"),
+            axis_text_y=p9.element_text(ha="right", va="center"),
+            axis_line_x=p9.element_line(color="#000000FF"),
+            axis_line_y=p9.element_blank(),
+            axis_ticks_major_x=p9.element_blank(),
+            axis_ticks_major_y=p9.element_blank(),
+            axis_ticks_minor_x=p9.element_blank(),
+            axis_ticks_minor_y=p9.element_blank(),
+            panel_grid_major_x=p9.element_blank(),
+            panel_grid_major_y=p9.element_line(color="#DFDFDFFF"),
+            panel_grid_minor_x=p9.element_blank(),
+            panel_grid_minor_y=p9.element_blank(),
+            panel_background=p9.element_rect(fill="#FFFFFFFF", color="#FFFFFFFF"),
+            panel_border=p9.element_blank(),
+            legend_title=p9.element_blank(),
+            legend_key=p9.element_blank(),
+            legend_key_width=8,
+            legend_key_height=35,
+            legend_entry_spacing_x=-10,
+            legend_entry_spacing_y=-20
+        )
+
+        plot = plot + p9.ggtitle(
+            x
+        )
+
+        # Set x & y scales
+        if not is_factor:
+            min_range = min(plot_data[x])
+            max_range = max(plot_data[x])
+            plot = plot + p9.scale_x_continuous(
+                limits=(min_range, max_range),
+                expand=(0,0)
+            )
+
+        if log:
+            # Build a fake log-scale
+            plot.data["__count"] = plot.data["__count"].apply(lambda x: np.log10(x + 1))
+
+            # Label mapping
+            labels = pd.Series(["0", "1", "2", "5", "10", "20", "50", "100", "200", "500", "1 000", "2 000", "5 000", "10 000", "20 000", "50 000", "100 000", "200 000", "500 000", "1 000 000"])
+            values = pd.Series([0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000, 200_000, 500_000, 1_000_000])
+            values = values.apply(lambda x: np.log10(x + 1))
+
+            # Remove unused labels
+            cutoff = max(plot.data["__count"]) * 1.05
+            for i in range(0, len(values)):
+                if values[i] > cutoff:
+                    values = values[:i]
+                    labels = labels[:i]
+                    break
+
+            plot = plot + p9.scale_y_continuous(
+                breaks=values,
+                labels=labels,
+                expand=(0, 0, 0.05, 0)
+            ) 
+        else:
+            plot = plot + p9.scale_y_continuous(
+                expand=(0, 0, 0.05, 0)
+            )
+
+        # Set binning
+        if is_factor:
+            plot = plot + p9.geom_bar(
+                stat="identity",
+                fill="#1F77B4"
+            )
+        else:
+            plot = plot + p9.geom_bar(
+                stat="identity",
+                fill="#1F77B4",
+                na_rm=True
+            )
+
+        # Apply mask
+        if self.mask is not None:
+            plot.data = plot.data.loc[self.mask]
 
         return plot
