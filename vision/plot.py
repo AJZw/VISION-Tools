@@ -30,7 +30,12 @@ Provides a VISION look-a-like plotting interface into the VISION data
 
 :class: Plot
 Convenience interface using Data and API for generating VISION-like plots
-.scatter()  -   Builds scatter plots of the VISION data
+.mask           -   Adds a boolean mask to 
+
+.scatter()      -   Builds scatter plots of the VISION data
+.projection()   -   Builds scatter plots of the specified projection
+.comparison()   -   Builds scatter plots comparing the x, and y property
+.bar()          -   Builds a bar graph
 
 """
 
@@ -131,7 +136,20 @@ class Plot:
             y=y
         )
 
+        # Check if x or y are factors if so, add jitter in geom_point
+        position = None
+        if x in self.data.meta.names and x in self.data.meta.levels:
+            position = p9.positions.position_jitter(width=0.4, height=0)
+        if y in self.data.meta.names and y in self.data.meta.levels:
+            if position is None:
+                position = p9.positions.position_jitter(width=0, height=0.4)
+            else:
+                position = p9.positions.position_jitter(width=0.4, height=0.4)
+        if position is None:
+            position = p9.positions.position_identity()
+
         plot = plot + p9.geom_point(
+            position=position,
             size=1
         )
         
@@ -180,7 +198,7 @@ class Plot:
             )
         
         elif c:
-            quantiles = plot_data[c].quantile([0.0, 0.02, 0.98, 1.0])
+            quantiles = data[c].quantile([0.0, 0.02, 0.98, 1.0])
             if full_color_range:
                 min_color = quantiles[0.0]
                 max_color = quantiles[1.0]
@@ -245,7 +263,7 @@ class Plot:
         
         return plot
 
-    def comparison(self, x: str, y: str, c: str=None, c_map: dict=None) -> p9.ggplot:
+    def comparison(self, x: str, y: str, c: str=None, c_map: dict=None, jitter: bool=False) -> p9.ggplot:
         """
         Creates a ggplot geom_point object with the correct data and axis.
         This plots x-y data (expression/signature) with color overlay
@@ -254,8 +272,28 @@ class Plot:
             :param y: the y dimension
             :param c: the parameter to use for color mapping. Searches entire dataset for fitting parameter
             :param color_map: only used for factorized color parameters. Uses the color_map to map the levels
+            :param jitter: whether to add a random jitter for 0 values
         """
         plot_data = copy.deepcopy(self.data[[x, y, c]])
+
+        if jitter:
+            # Check if factor
+            if x in self.data.meta.names and x in self.data.meta.levels:
+                # jitter is taken care off automatically .in scatter()
+                pass
+            else:
+                is_zero = plot_data[x] == 0
+                jitter = np.random.uniform(low=-0.05, high=0.05, size=sum(is_zero))
+                plot_data.loc[is_zero, x] += jitter
+            
+            # Check if factor
+            if y in self.data.meta.names and y in self.data.meta.levels:
+                # jitter is taken care off automatically .in scatter()
+                pass
+            else:
+                is_zero = plot_data[y] == 0
+                jitter = np.random.uniform(low=-0.05, high=0.05, size=sum(is_zero))
+                plot_data.loc[is_zero, y] += jitter
 
         plot = self.scatter(plot_data, x, y, c, c_map)
 
@@ -394,9 +432,5 @@ class Plot:
                 fill="#1F77B4",
                 na_rm=True
             )
-
-        # Apply mask
-        if self.mask is not None:
-            plot.data = plot.data.loc[self.mask]
 
         return plot
