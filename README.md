@@ -139,7 +139,8 @@ bar = Plot.bar(x="x", log=False)
 
 v1.0 - Implemented the API, Data containers, and scatter plot  
 v1.1 - Removed some API inconsistencies  
-v1.2 - Implemented bar plot
+v1.2 - Implemented bar plots  
+v1.3 - Implemented violin plots
 
 ## What Can Still Be Done
 

@@ -137,15 +137,15 @@ class Plot:
         )
 
         # Check if x or y are factors if so, add jitter in geom_point
-        position = None
+        width=0
+        height=0
         if x in self.data.meta.names and x in self.data.meta.levels:
-            position = p9.positions.position_jitter(width=0.4, height=0)
+            width = 0.4
         if y in self.data.meta.names and y in self.data.meta.levels:
-            if position is None:
-                position = p9.positions.position_jitter(width=0, height=0.4)
-            else:
-                position = p9.positions.position_jitter(width=0.4, height=0.4)
-        if position is None:
+            height = 0.4
+        if width != 0 or height != 0:
+            position = p9.positions.position_jitter(width=width, height=height)
+        else:
             position = p9.positions.position_identity()
 
         plot = plot + p9.geom_point(
@@ -231,6 +231,46 @@ class Plot:
                         ticks=False
                     )
                 )
+
+        if self.mask is not None:
+            plot.data = plot.data.loc[self.mask]
+
+        return plot
+
+    def violin(self, data: pd.DataFrame, x: str, y: str, x_map: dict=None) -> p9.ggplot:
+        """
+        Builds a basic violin/boxplot plot from the data
+            :param data: the dataframe containing parameter x and y
+            :param x: the x (factorized) dimension
+            :param y: the y dimension 
+            :param x_map: only used for x dimension. Uses the x_map to map the levels
+        """
+        plot = p9.ggplot(
+            data, 
+            p9.aes(x=x, y=y, fill=x)
+        )
+
+        plot = plot + p9.theme_bw() + p9.theme(
+            text=p9.element_text(family="sans-serif", weight="normal"),
+            plot_title=p9.element_text(ha="center", weight="bold", size=14),
+            axis_text_x=p9.element_text(rotation=90, ha="center", va="top"),
+            axis_text_y=p9.element_text(ha="right", va="center"),
+            axis_ticks_major_x=p9.element_blank(),
+            axis_ticks_major_y=p9.element_blank(),
+            axis_ticks_minor_x=p9.element_blank(),
+            axis_ticks_minor_y=p9.element_blank(),
+            panel_grid_major_x=p9.element_line(color="#DFDFDFFF"),
+            panel_grid_major_y=p9.element_line(color="#DFDFDFFF"),
+            panel_grid_minor_x=p9.element_blank(),
+            panel_grid_minor_y=p9.element_blank(),
+            panel_background=p9.element_rect(fill="#EEEEEEFF", color="#FFFFFFFF"),
+            legend_position="none"
+        )
+        plot += p9.geom_violin()
+        plot += p9.geom_boxplot(p9.aes(x=x, y=y), fill=None, width=0.1, inherit_aes=False)
+
+        if x_map:
+            plot += p9.scales.scale_fill_manual(values=x_map)
 
         if self.mask is not None:
             plot.data = plot.data.loc[self.mask]
