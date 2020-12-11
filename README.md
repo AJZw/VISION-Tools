@@ -119,20 +119,26 @@ plot = Plot("[VISION session link here]")
 # The vision.data can be reached using the .data attribute
 plot.data
 
-# To plot a scatter plot of a certain projection, use:
+# To plot a scatter plot of a projection, use:
+scatter = plot.projection("projection_name", x="x", y="y")
+
+# c(olor) parameter can be used to overlay the (normalized) gene count
 scatter = plot.projection("projection_name", x="x", y="y", c="gene")
 
 # Or if you rather plot two genes against eachother, use:
 scatter = plot.comparison(x="TBX21", y="GZMB")
 
 # To plot only a subset of the data, you can add a mask
-plot.mask = plot.data["discrete"] == "1"
+plot.mask = plot.data["discrete_parameter"] == "1"
 
 # For discrete parameters a custom color_map can be added
-scatter = Plot.projection("projection_name", x="x", y="y", c="discrete", c_map={"1":"red", "2":"blue"})
+scatter = plot.projection("projection_name", x="x", y="y", c="discrete", c_map={"1":"red", "2":"blue"})
 
 # Bar plots can also be created, and can be log10(x+1) scaled
-bar = Plot.bar(x="x", log=False)
+bar = plot.bar(x="x", log=False)
+
+# Stacked bar plots can be made for categorical categories
+bar_stacked = plot.bar_stacked(x="x", y="categorical y", y_map={"1":"red", "2":"blue"})
 ```
 
 ## Version Info

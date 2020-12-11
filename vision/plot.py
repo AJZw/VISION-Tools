@@ -33,9 +33,11 @@ Convenience interface using Data and API for generating VISION-like plots
 .mask           -   Adds a boolean mask to 
 
 .scatter()      -   Builds scatter plots of the VISION data
+.violin()       -   Builds violin plots of the VISION data
 .projection()   -   Builds scatter plots of the specified projection
 .comparison()   -   Builds scatter plots comparing the x, and y property
 .bar()          -   Builds a bar graph
+.bar_stacked()  -   Builds a stacked bar graph of a categorical value
 
 """
 
@@ -48,7 +50,8 @@ import numpy as np
 import plotnine as p9
 import copy
 
-p9.options.figure_size=(12.8, 9.6)
+#p9.options.figure_size=(12.8, 9.6)
+p9.options.figure_size=(6.4, 4.8)
 
 class Plot:
     """
@@ -470,6 +473,171 @@ class Plot:
             plot = plot + p9.geom_bar(
                 stat="identity",
                 fill="#1F77B4",
+                na_rm=True
+            )
+
+        return 
+        
+    def bar_stacked(self, x: str, y: str, y_map: dict=None, fraction: bool=True) -> p9.ggplot:
+        """
+        Builds a bar graph
+            :param x: the x-dimension
+            :param y: the y-dimension (categorical)
+            :param y_map: (optional) the color_map to use for the y-dimension
+            :param fraction: whether to report the fraction (instead of absolute counts) / x dimension
+        """
+        if y not in self.data.meta.names or y not in self.data.meta.levels:
+            raise ValueError(f"the y-dimension '{y}' has to be a categorical parameter")
+
+        plot_data = copy.deepcopy(self.data[[x, y]])
+
+        bin_count = 40
+        is_factor = False
+
+        # Determine if factor
+        if x in self.data.meta.names:
+            if x in self.data.meta.levels:
+                is_factor = True
+                bin_range = self.data.meta.levels[x]
+                bin_count = len(bin_range)
+
+        # Do necessary binning:
+        if not is_factor:
+            plot_data["__bin"], bin_range = pd.cut(
+                plot_data[x],
+                bins=bin_count,
+                right=False,
+                include_lowest=True,
+                retbins=True,
+                labels=False
+            )
+            # now set the bins to the middle of the bin_range for proper x-visualization
+            bin_value = {}
+            bin_width = (bin_range[1] - bin_range[0])
+            for i in range(0, len(bin_range)-1):
+                bin_value[i] = ((i+0.5)*bin_width) + bin_range[0]
+
+            plot_data["__bin"] = plot_data["__bin"].apply(lambda x: bin_value[x])
+        else:
+            plot_data["__bin"] = plot_data[x]
+
+        # Generate x&y bins
+        plot_data["__xy"] = plot_data.loc[:,["__bin", y]].apply(lambda x: '__'.join(x), axis=1)
+
+        # Count bins
+        bin_data = pd.value_counts(plot_data["__xy"])
+
+        bin_data = pd.concat([
+            bin_data,
+            pd.DataFrame(bin_data.index.str.split("__").to_list(), index=bin_data.index, columns=["__x", "__y"]),
+        ], axis=1)
+
+        # Fractionize
+        if fraction:
+            output = []
+            for key, group in bin_data.groupby("__x"):
+                total = sum(group["__xy"])
+                group["__xy"] = group["__xy"].apply(lambda x: x/total)
+                output.append(group)
+            bin_data = pd.concat(output)
+
+        plot = p9.ggplot(
+            bin_data
+        )
+
+        # hides axis titles
+        plot = plot + p9.theme_bw() + p9.theme(
+            text=p9.element_text(family="sans-serif", weight="normal"),
+            plot_title=p9.element_text(ha="center", weight="bold", size=14),
+            axis_title_x=p9.element_blank(),
+            axis_title_y=p9.element_blank(),
+            axis_text_x=p9.element_text(ha="center", va="top"),
+            axis_text_y=p9.element_text(ha="right", va="center"),
+            axis_line_x=p9.element_line(color="#000000FF"),
+            axis_line_y=p9.element_blank(),
+            axis_ticks_major_x=p9.element_blank(),
+            axis_ticks_major_y=p9.element_blank(),
+            axis_ticks_minor_x=p9.element_blank(),
+            axis_ticks_minor_y=p9.element_blank(),
+            panel_grid_major_x=p9.element_blank(),
+            panel_grid_major_y=p9.element_line(color="#DFDFDFFF"),
+            panel_grid_minor_x=p9.element_blank(),
+            panel_grid_minor_y=p9.element_blank(),
+            panel_background=p9.element_rect(fill="#FFFFFFFF", color="#FFFFFFFF"),
+            panel_border=p9.element_blank(),
+            legend_title=p9.element_blank(),
+            legend_key=p9.element_blank(),
+            legend_key_width=8,
+            legend_key_height=35,
+            legend_entry_spacing_x=-10,
+            legend_entry_spacing_y=-20
+        )
+
+        plot = plot + p9.ggtitle(
+            x
+        )
+
+        # Set x scale
+        if not is_factor:
+            min_range = min(plot_data[x])
+            max_range = max(plot_data[x])
+            plot = plot + p9.scale_x_continuous(
+                limits=(min_range, max_range),
+                expand=(0,0)
+            )
+
+        # Set y scale 
+        if fraction:
+            max_y = 1.0
+        else:
+            max_y = 0
+            for key, group in bin_data.groupby("__x"):
+                total = sum(group["__xy"])
+                if total > max_y:
+                    max_y = total
+
+        plot = plot + p9.scale_y_continuous(
+            limits=(0, max_y),
+            expand=(0, 0, 0.05, 0)
+        )
+
+        # Set fill-scaling
+        if y_map:
+            for level in self.data.meta.levels[y]:
+                if level not in y_map:
+                    raise ValueError(f"level '{level}' of y-dimension '{y}' not found in y_map")
+            plot = plot + p9.scales.scale_fill_manual(
+                values = y_map
+            )
+        elif len(self.data.meta.levels[y]) <= 10:
+            # hardcode the tab colorscales, as i dont know how else i can use them for discrete scales... scale_color_cmap doesnt work...
+            plot = plot + p9.scales.scale_fill_manual(
+                values = self.tab10
+            )
+        else:
+            # Use default - (dont care much and) couldnt quickly see which colormap is used for >10 discrete values
+            pass
+        
+        # Add bar graphs
+        if is_factor:
+            plot = plot + p9.geom_bar(
+                p9.aes(
+                    x="__x",
+                    y="__xy",
+                    fill="__y"
+                ),
+                stat="stat_identity",
+                inherit_aes=False
+            )
+        else:
+            plot = plot + p9.geom_bar(
+                p9.aes(
+                    x="__x",
+                    y="__xy",
+                    fill="__y"
+                ),
+                stat="stat_identity",
+                inherit_aes=False,
                 na_rm=True
             )
 
