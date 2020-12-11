@@ -146,7 +146,8 @@ bar_stacked = plot.bar_stacked(x="x", y="categorical y", y_map={"1":"red", "2":"
 v1.0 - Implemented the API, Data containers, and scatter plot  
 v1.1 - Removed some API inconsistencies  
 v1.2 - Implemented bar plots  
-v1.3 - Implemented violin plots
+v1.3 - Implemented violin plots  
+v1.4 - Implemented bar_stacked plots
 
 ## What Can Still Be Done
 
