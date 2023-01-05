@@ -1,10 +1,10 @@
 ##############################################################################     ##    ######
 #    A.J. Zwijnenburg                   2020-09-21           v1.2                 #  #      ##
-#    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
+#    Copyright (C) 2023 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
 ## Copyright notice ##########################################################
-# Copyright 2020 AJ Zwijnenburg
+# Copyright 2023 AJ Zwijnenburg
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy 
 # of this software and associated documentation files (the "Software"), to deal 
@@ -59,8 +59,9 @@ class Plot:
         :param session: the VISION session link
     """
     # Additional discrete colorscale
-    tab10 = ["#1f77b4","#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
-    tab20 = ["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"]
+    tab10 = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+    #tab20 = ["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"]
+    tab20 = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf", "#aec7e8", "#ffbb78", "#98df8a",  "#ff9896", "#c5b0d5", "#c49c94", "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"]
 
     def __init__(self, session: str) -> None:
         self.data = Data(session)
@@ -112,11 +113,13 @@ class Plot:
             axis_ticks_major_y=p9.element_blank(),
             axis_ticks_minor_x=p9.element_blank(),
             axis_ticks_minor_y=p9.element_blank(),
-            panel_grid_major_x=p9.element_line(color="#DFDFDFFF"),
-            panel_grid_major_y=p9.element_line(color="#DFDFDFFF"),
+            #panel_grid_major_x=p9.element_line(color="#DFDFDFFF"),
+            #panel_grid_major_y=p9.element_line(color="#DFDFDFFF"),
+            panel_grid_major_x=p9.element_blank(),
+            panel_grid_major_y=p9.element_blank(),
             panel_grid_minor_x=p9.element_blank(),
             panel_grid_minor_y=p9.element_blank(),
-            panel_background=p9.element_rect(fill="#EEEEEEFF", color="#FFFFFFFF"),
+            panel_background=p9.element_rect(fill="#F8F8F8FF", color="#FFFFFFFF"),
             legend_title=p9.element_blank(),
             legend_key=p9.element_blank(),
             legend_key_width=8,
@@ -192,6 +195,11 @@ class Plot:
                 plot = plot + p9.scales.scale_color_manual(
                     values = self.tab10
                 )
+            elif len(self.data.meta.levels[c]) <= 20:
+                # hardcode the tab colorscales, as i dont know how else i can use them for discrete scales... scale_color_cmap doesnt work...
+                plot = plot + p9.scales.scale_color_manual(
+                    values = self.tab20
+                )
             else:
                 # Use default - (dont care much and) couldnt quickly see which colormap is used for >10 discrete values
                 pass
@@ -212,6 +220,7 @@ class Plot:
             if diverging_colormap:
                 plot = plot + p9.scales.scale_color_cmap(
                     cmap_name="viridis",
+                    #cmap_name="hsv", - TRIcycle
                     limits=(min_color, max_color),
                     guide=p9.guide_colorbar(
                         ticks=False

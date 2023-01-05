@@ -1,10 +1,10 @@
 ##############################################################################     ##    ######
 #    A.J. Zwijnenburg                   2020-09-20           v1.1                 #  #      ##
-#    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
+#    Copyright (C) 2023 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
 ## Copyright notice ##########################################################
-# Copyright 2020 AJ Zwijnenburg
+# Copyright 2023 AJ Zwijnenburg
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy 
 # of this software and associated documentation files (the "Software"), to deal 
@@ -35,7 +35,7 @@ Main storage class of a VISION dataset, provides:
 .cells          - a list of all cell ids
 .expression     - hook into the expression data of the dataset
 .protein        - hook into the protein data of the dataset
-.signature      - hook into the siganture data of the dataset
+.signature      - hook into the signature data of the dataset
 .meta           - hook into the metadata of the dataset
 .projection     - hook into the projection data of the dataset
 

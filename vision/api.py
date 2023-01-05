@@ -1,10 +1,10 @@
 ##############################################################################     ##    ######
 #    A.J. Zwijnenburg                   2020-09-20           v1.1                 #  #      ##
-#    Copyright (C) 2020 - AJ Zwijnenburg          MIT license                    ######   ##
+#    Copyright (C) 2023 - AJ Zwijnenburg          MIT license                    ######   ##
 ##############################################################################  ##    ## ######
 
 ## Copyright notice ##########################################################
-# Copyright 2020 AJ Zwijnenburg
+# Copyright 2023 AJ Zwijnenburg
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy 
 # of this software and associated documentation files (the "Software"), to deal 
